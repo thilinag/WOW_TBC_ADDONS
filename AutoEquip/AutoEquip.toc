@@ -1,0 +1,8 @@
+## Interface: 20506
+## Title: AutoEquip
+## Notes: Equips a saved gear set when entering a dungeon or raid.
+## Author: Thilina
+## Version: 1.0.0
+## SavedVariablesPerCharacter: AutoEquipDB
+
+AutoEquip.lua
