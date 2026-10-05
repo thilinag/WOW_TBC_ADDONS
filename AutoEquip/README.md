@@ -1,9 +1,6 @@
 # AutoEquip
 
-A World of Warcraft TBC Anniversary (2.5.6) addon that:
-
-- equips your saved gear set when you enter a dungeon or raid
-- swaps the Skybreaker Whip into trinket slot 1 while you're mounted, and puts your normal trinket back when you dismount
+A World of Warcraft TBC Anniversary (2.5.6) addon that equips your saved gear set when you enter a dungeon or raid.
 
 ## Installation
 
@@ -30,12 +27,6 @@ Every equipped slot is saved except shirt and tabard. Sets are saved per charact
 - Moving between areas inside the instance, or typing `/reload` there, doesn't trigger it again.
 - Leaving the instance doesn't change your gear.
 
-**Mounting.** When you mount, AutoEquip remembers your trinket in slot 1 and equips the Skybreaker Whip there. When you dismount, your old trinket goes back on.
-
-- If you get knocked off your mount into combat, the trinket goes back on when combat ends.
-- If you change trinkets yourself while mounted, AutoEquip keeps your change and doesn't swap back.
-- If you don't have the whip, nothing happens when you mount.
-
 ## Commands
 
 `/ae` and `/autoequip` work the same way.
@@ -47,10 +38,8 @@ Every equipped slot is saved except shirt and tabard. Sets are saved per charact
 | `/ae show` | List the saved set and whether auto-equip is on |
 | `/ae on` / `/ae off` | Turn auto-equip on or off for dungeons and raids |
 | `/ae clear` | Delete the saved set |
-| `/ae mount` | Turn the mount trinket swap on or off |
 
 ## Limitations
 
 - Items are matched by item ID. If you have two copies of the same item with different enchants or gems, AutoEquip may equip the wrong one.
-- The whip is found by its English name, so the mount swap only works on English clients.
 - Logging in while already inside an instance doesn't equip the set. Type `/ae equip` instead.
