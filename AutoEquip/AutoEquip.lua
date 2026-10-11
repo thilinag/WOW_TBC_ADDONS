@@ -12,9 +12,6 @@ local SLOT_NAMES = {
     [16] = "Main Hand", [17] = "Off Hand", [18] = "Ranged",
 }
 
-local MOUNT_TRINKET = "Skybreaker Whip"
-local MOUNT_SLOT = INVSLOT_TRINKET1
-
 local wasInInstance = false
 local pending = false
 
@@ -29,10 +26,6 @@ local function ItemIDFromLink(link)
     return tonumber(link:match("item:(%d+)"))
 end
 
-local function IsMountTrinket(link)
-    return link ~= nil and link:match("%[(.-)%]") == MOUNT_TRINKET
-end
-
 local function InInstance()
     local inInstance, instanceType = IsInInstance()
     return inInstance and (instanceType == "party" or instanceType == "raid")
@@ -44,10 +37,6 @@ local function SaveSet()
     for slot = INVSLOT_FIRST_EQUIPPED, INVSLOT_LAST_EQUIPPED do
         if not SKIP_SLOTS[slot] then
             local link = GetInventoryItemLink("player", slot)
-            -- Saving while mounted: record the real trinket, not the whip.
-            if slot == MOUNT_SLOT and IsMountTrinket(link) and AutoEquipDB.mountPrev then
-                link = AutoEquipDB.mountPrev
-            end
             if link then
                 set[slot] = link
                 count = count + 1
@@ -113,28 +102,6 @@ local function CheckZone()
     wasInInstance = inInstance
 end
 
-local function UpdateMountTrinket()
-    if not AutoEquipDB.mountEnabled then return end
-    -- Can't swap trinkets in combat; PLAYER_REGEN_ENABLED calls us again.
-    if InCombatLockdown() or UnitAffectingCombat("player") then return end
-
-    local current = GetInventoryItemLink("player", MOUNT_SLOT)
-    if IsMounted() then
-        if IsMountTrinket(current) then return end
-        if IsEquippedItem(MOUNT_TRINKET) or GetItemCount(MOUNT_TRINKET) > 0 then
-            AutoEquipDB.mountPrev = current
-            EquipItemByName(MOUNT_TRINKET, MOUNT_SLOT)
-        end
-    elseif AutoEquipDB.mountPrev then
-        -- Inventory not loaded yet (e.g. during a loading screen); try later.
-        if not GetInventoryItemID("player", MOUNT_SLOT) then return end
-        if IsMountTrinket(current) then
-            EquipItemByName(AutoEquipDB.mountPrev, MOUNT_SLOT)
-        end
-        AutoEquipDB.mountPrev = nil
-    end
-end
-
 local function ShowSet()
     if not next(AutoEquipDB.set) then
         Print("no set saved.")
@@ -154,7 +121,9 @@ frame:SetScript("OnEvent", function(self, event, ...)
         if ... == ADDON_NAME then
             AutoEquipDB = AutoEquipDB or {}
             if AutoEquipDB.enabled == nil then AutoEquipDB.enabled = true end
-            if AutoEquipDB.mountEnabled == nil then AutoEquipDB.mountEnabled = true end
+            -- Clean up settings from the removed mount trinket swap.
+            AutoEquipDB.mountEnabled = nil
+            AutoEquipDB.mountPrev = nil
             AutoEquipDB.set = AutoEquipDB.set or {}
             self:UnregisterEvent("ADDON_LOADED")
         end
@@ -166,17 +135,13 @@ frame:SetScript("OnEvent", function(self, event, ...)
         else
             CheckZone()
         end
-        C_Timer.After(RETRY_DELAY, UpdateMountTrinket)
     elseif event == "ZONE_CHANGED_NEW_AREA" then
         CheckZone()
-    elseif event == "UNIT_AURA" then
-        UpdateMountTrinket()
     elseif event == "PLAYER_REGEN_ENABLED" then
         if pending then
             pending = false
             EquipSet()
         end
-        UpdateMountTrinket()
     end
 end)
 
@@ -184,7 +149,6 @@ frame:RegisterEvent("ADDON_LOADED")
 frame:RegisterEvent("PLAYER_ENTERING_WORLD")
 frame:RegisterEvent("ZONE_CHANGED_NEW_AREA")
 frame:RegisterEvent("PLAYER_REGEN_ENABLED")
-frame:RegisterUnitEvent("UNIT_AURA", "player")
 
 SLASH_AUTOEQUIP1 = "/autoequip"
 SLASH_AUTOEQUIP2 = "/ae"
@@ -205,10 +169,7 @@ SlashCmdList.AUTOEQUIP = function(msg)
     elseif cmd == "clear" then
         AutoEquipDB.set = {}
         Print("saved set cleared.")
-    elseif cmd == "mount" then
-        AutoEquipDB.mountEnabled = not AutoEquipDB.mountEnabled
-        Print(("mount trinket swap %s."):format(AutoEquipDB.mountEnabled and "enabled" or "disabled"))
     else
-        Print("commands: save, equip, show, on, off, clear, mount")
+        Print("commands: save, equip, show, on, off, clear")
     end
 end

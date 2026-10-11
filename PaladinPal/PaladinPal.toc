@@ -1,0 +1,8 @@
+## Interface: 20506
+## Title: PaladinPal
+## Notes: On-screen paladin reminders: missing aura and Divine Favor ready in combat.
+## Author: Thilina
+## Version: 1.1.0
+## SavedVariablesPerCharacter: PaladinPalDB
+
+PaladinPal.lua
