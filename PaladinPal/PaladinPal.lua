@@ -6,6 +6,7 @@ local _, playerClass = UnitClass("player")
 if playerClass ~= "PALADIN" then return end
 
 local DIVINE_FAVOR = 20216
+local DIVINE_ILLUMINATION = 31842
 -- Cooldowns at or below this are just the global cooldown.
 local GCD_THRESHOLD = 1.5
 local ICON_SIZE = 40
@@ -27,7 +28,7 @@ end
 local function CreateWarning(reminder)
     local posKey = reminder.key .. "Pos"
     local warning = CreateFrame("Frame", "PaladinPal_" .. reminder.key, UIParent)
-    warning:SetSize(380, 50)
+    warning:SetSize(480, 50)
     warning:SetMovable(true)
     warning:SetClampedToScreen(true)
     warning:RegisterForDrag("LeftButton")
@@ -143,6 +144,17 @@ local function SpellReady(spellID)
     return true
 end
 
+-- For talented cooldowns worth pressing on pull: shows while the spell is
+-- off cooldown in combat inside a dungeon or raid.
+local function CombatCooldownReady(spellID)
+    if not IsPlayerSpell(spellID) then return false end
+    if UnitIsDeadOrGhost("player") or not UnitAffectingCombat("player") then return false end
+    if not InDungeonOrRaid() then return false end
+    -- Already popped and still active.
+    if HasBuff(spellID) then return false end
+    return SpellReady(spellID)
+end
+
 -- To add a reminder, add an entry here. `key` is used for the slash
 -- command (/pp <key> on|off) and saved settings; `check` returns true
 -- when the warning should show. Set `spell` to show that spell's icon.
@@ -167,15 +179,16 @@ local reminders = {
         spell = DIVINE_FAVOR,
         color = { 1, 0.82, 0 },
         defaultY = 145,
-        check = function()
-            -- Divine Favor is a Holy talent.
-            if not IsPlayerSpell(DIVINE_FAVOR) then return false end
-            if UnitIsDeadOrGhost("player") or not UnitAffectingCombat("player") then return false end
-            if not InDungeonOrRaid() then return false end
-            -- Already popped and waiting to be consumed by the next heal.
-            if HasBuff(DIVINE_FAVOR) then return false end
-            return SpellReady(DIVINE_FAVOR)
-        end,
+        check = function() return CombatCooldownReady(DIVINE_FAVOR) end,
+    },
+    {
+        key = "illumination",
+        name = "Divine Illumination",
+        text = "DIVINE ILLUMINATION",
+        spell = DIVINE_ILLUMINATION,
+        color = { 0.4, 0.8, 1 },
+        defaultY = 90,
+        check = function() return CombatCooldownReady(DIVINE_ILLUMINATION) end,
     },
 }
 

@@ -4,6 +4,7 @@ A World of Warcraft TBC Anniversary (2.5.6) addon for paladins. It shows flashin
 
 - **NO AURA** whenever you don't have an aura active
 - **DIVINE FAVOR** (with the spell icon) when you're in combat in a dungeon or raid and [Divine Favor](https://www.wowhead.com/tbc/spell=20216/divine-favor) is off cooldown
+- **DIVINE ILLUMINATION** (with the spell icon) under the same rules for [Divine Illumination](https://www.wowhead.com/tbc/spell=31842/divine-illumination)
 
 ## Installation
 
@@ -27,16 +28,16 @@ The warning appears when you have no aura active, and goes away as soon as you t
 
 Any aura counts, including Crusader Aura. Auras from other paladins don't count, so the warning only cares about your own.
 
-## When the Divine Favor warning shows
+## When the Divine Favor and Divine Illumination warnings show
 
-The warning appears when all of these are true:
+Each warning appears when all of these are true:
 
-- you have the Divine Favor talent
+- you have the talent
 - you're in combat
 - you're inside a dungeon or raid instance
-- Divine Favor is off cooldown (the global cooldown is ignored)
+- the spell is off cooldown (the global cooldown is ignored)
 
-It hides while the Divine Favor buff is on you, waiting for your next heal.
+Each one hides while its buff is on you: Divine Favor until your next heal, Divine Illumination for its duration.
 
 ## Commands
 
@@ -45,7 +46,7 @@ It hides while the Divine Favor buff is on you, waiting for your next heal.
 | Command | What it does |
 |---|---|
 | `/pp on` / `/pp off` | Turn all reminders on or off |
-| `/pp <reminder> on` / `/pp <reminder> off` | Turn one reminder on or off: `aura` or `favor` |
+| `/pp <reminder> on` / `/pp <reminder> off` | Turn one reminder on or off: `aura`, `favor` or `illumination` |
 | `/pp unlock` | Show all warnings so you can drag them somewhere else |
 | `/pp lock` | Lock the warnings in place |
 | `/pp reset` | Move all warnings back to their default spots above the center of the screen |
