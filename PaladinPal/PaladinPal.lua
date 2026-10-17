@@ -7,6 +7,11 @@ if playerClass ~= "PALADIN" then return end
 
 local DIVINE_FAVOR = 20216
 local DIVINE_ILLUMINATION = 31842
+-- Each rank is a separate spell ID. You need the seal to judge it.
+local SEAL_OF_WISDOM_RANKS = { 20166, 20356, 20357, 27166 }
+-- Debuff IDs left on the target, keyed for lookup.
+local JUDGEMENT_OF_WISDOM_RANKS = { [20186] = true, [20354] = true, [20355] = true, [27164] = true }
+local JUDGEMENT_OF_WISDOM = 20186
 -- Cooldowns at or below this are just the global cooldown.
 local GCD_THRESHOLD = 1.5
 local ICON_SIZE = 40
@@ -89,6 +94,12 @@ local function CreateWarning(reminder)
         end
     end
 
+    function warning:Nudge(dx, dy)
+        local point, _, relPoint, x, y = self:GetPoint()
+        PaladinPalDB[posKey] = { point, relPoint, x + dx, y + dy }
+        self:ApplyPosition()
+    end
+
     function warning:ResetPosition()
         PaladinPalDB[posKey] = nil
         self:ApplyPosition()
@@ -155,6 +166,30 @@ local function CombatCooldownReady(spellID)
     return SpellReady(spellID)
 end
 
+local function TargetHasDebuff(ids)
+    for i = 1, 40 do
+        local name, _, _, _, _, _, _, _, _, id = UnitDebuff("target", i)
+        if not name then return false end
+        if ids[id] then return true end
+    end
+    return false
+end
+
+-- Shows in combat while your hostile target lacks Judgement of Wisdom.
+-- Any paladin's Judgement of Wisdom counts, since only one can be on a target.
+local function JudgementMissing()
+    local known = false
+    for _, id in ipairs(SEAL_OF_WISDOM_RANKS) do
+        if IsPlayerSpell(id) then known = true break end
+    end
+    if not known then return false end
+    if UnitIsDeadOrGhost("player") or not UnitAffectingCombat("player") then return false end
+    if not UnitExists("target") or UnitIsDead("target") or not UnitCanAttack("player", "target") then
+        return false
+    end
+    return not TargetHasDebuff(JUDGEMENT_OF_WISDOM_RANKS)
+end
+
 -- To add a reminder, add an entry here. `key` is used for the slash
 -- command (/pp <key> on|off) and saved settings; `check` returns true
 -- when the warning should show. Set `spell` to show that spell's icon.
@@ -189,6 +224,15 @@ local reminders = {
         color = { 0.4, 0.8, 1 },
         defaultY = 90,
         check = function() return CombatCooldownReady(DIVINE_ILLUMINATION) end,
+    },
+    {
+        key = "wisdom",
+        name = "Judgement of Wisdom",
+        text = "JUDGEMENT OF WISDOM",
+        spell = JUDGEMENT_OF_WISDOM,
+        color = { 0.7, 0.5, 1 },
+        defaultY = 35,
+        check = JudgementMissing,
     },
 }
 
@@ -243,7 +287,8 @@ frame:RegisterEvent("PLAYER_REGEN_ENABLED")
 frame:RegisterEvent("SPELL_UPDATE_COOLDOWN")
 frame:RegisterEvent("SPELLS_CHANGED")
 frame:RegisterEvent("ZONE_CHANGED_NEW_AREA")
-frame:RegisterUnitEvent("UNIT_AURA", "player")
+frame:RegisterEvent("PLAYER_TARGET_CHANGED")
+frame:RegisterUnitEvent("UNIT_AURA", "player", "target")
 
 local function SetEnabled(reminder, value)
     PaladinPalDB[reminder.key] = value
@@ -253,7 +298,7 @@ end
 local function Usage()
     local keys = {}
     for _, reminder in ipairs(reminders) do keys[#keys + 1] = reminder.key end
-    Print("commands: on, off, <reminder> on|off, unlock, lock, reset")
+    Print("commands: on, off, <reminder> on|off, move [reminder] <x> <y>, unlock, lock, reset")
     Print("reminders: " .. table.concat(keys, ", "))
 end
 
@@ -273,6 +318,19 @@ SlashCmdList.PALADINPAL = function(msg)
         SetUnlocked(false)
         Print("warnings locked.")
         return
+    elseif cmd == "move" then
+        -- /pp move <x> <y> moves every warning; /pp move <reminder> <x> <y> moves one.
+        local a, b, c = strsplit(" ", arg or "")
+        local targets, dx, dy = reminders, tonumber(a), tonumber(b)
+        if remindersByKey[a] then
+            targets, dx, dy = { remindersByKey[a] }, tonumber(b), tonumber(c)
+        end
+        if not dx or not dy then
+            Print("usage: /pp move [reminder] <x> <y>, e.g. /pp move 0 50 moves all warnings 50 pixels up.")
+            return
+        end
+        for _, reminder in ipairs(targets) do reminder.warning:Nudge(dx, dy) end
+        Print("warnings moved.")
     elseif cmd == "reset" then
         for _, reminder in ipairs(reminders) do reminder.warning:ResetPosition() end
         Print("positions reset.")
