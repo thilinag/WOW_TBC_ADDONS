@@ -12,6 +12,19 @@ local SEAL_OF_WISDOM_RANKS = { 20166, 20356, 20357, 27166 }
 -- Debuff IDs left on the target, keyed for lookup.
 local JUDGEMENT_OF_WISDOM_RANKS = { [20186] = true, [20354] = true, [20355] = true, [27164] = true }
 local JUDGEMENT_OF_WISDOM = 20186
+-- There's no distance API for enemies, so range is bracketed by checking
+-- which of these are in range. Spells you haven't learned are skipped, and
+-- Exorcism only checks undead and demons.
+local JUDGEMENT = 20271
+local RANGE_PROBES = {
+    { yards = 10, spell = JUDGEMENT },
+    { yards = 20, spell = 20473 },   -- Holy Shock
+    { yards = 28, interact = 4 },    -- follow distance
+    { yards = 30, spell = 24275 },   -- Hammer of Wrath
+    { yards = 30, spell = 31935 },   -- Avenger's Shield
+    { yards = 30, spell = 879 },     -- Exorcism
+}
+local RANGE_INTERVAL = 0.1
 -- Cooldowns at or below this are just the global cooldown.
 local GCD_THRESHOLD = 1.5
 local ICON_SIZE = 40
@@ -242,6 +255,91 @@ for _, reminder in ipairs(reminders) do
     remindersByKey[reminder.key] = reminder
 end
 
+-- Returns true or false, or nil when this probe can't check the target.
+local function ProbeInRange(probe)
+    if probe.interact then
+        local ok, result = pcall(CheckInteractDistance, "target", probe.interact)
+        if not ok or result == nil then return nil end
+        return result and true or false
+    end
+    if not IsPlayerSpell(probe.spell) then return nil end
+    -- Newer clients only have these under C_Spell, which also takes the ID.
+    local result
+    if C_Spell and C_Spell.IsSpellInRange then
+        result = C_Spell.IsSpellInRange(probe.spell, "target")
+    elseif IsSpellInRange and GetSpellInfo then
+        local name = GetSpellInfo(probe.spell)
+        if not name then return nil end
+        result = IsSpellInRange(name, "target")
+    end
+    if result == nil then return nil end
+    return result == 1 or result == true
+end
+
+-- Returns the target's distance as a bracket (lower, upper) in yards, with
+-- upper nil when it's past every probe. Returns nil when in Judgement range
+-- or when range can't be checked.
+local function EstimateRange()
+    local judge = ProbeInRange(RANGE_PROBES[1])
+    if judge ~= false then return nil end
+    local results, upper = {}, nil
+    for i = 2, #RANGE_PROBES do
+        local probe = RANGE_PROBES[i]
+        results[i] = ProbeInRange(probe)
+        if results[i] and (not upper or probe.yards < upper) then upper = probe.yards end
+    end
+    local lower = 10
+    for i = 2, #RANGE_PROBES do
+        local yards = RANGE_PROBES[i].yards
+        if results[i] == false and yards > lower and (not upper or yards < upper) then
+            lower = yards
+        end
+    end
+    return lower, upper
+end
+
+-- The distance to your target, under the Judgement of Wisdom warning, shown
+-- while you're too far away to judge.
+local function CreateRangeText(warning)
+    local text = warning:CreateFontString(nil, "OVERLAY")
+    text:SetFont(STANDARD_TEXT_FONT, 26, "THICKOUTLINE")
+    text:SetTextColor(1, 0.55, 0.2)
+    text:SetPoint("TOP", warning, "BOTTOM", 0, -2)
+    text:Hide()
+
+    local elapsed = 0
+    -- Don't show the last reading from a previous target; check on the next frame.
+    warning:HookScript("OnShow", function()
+        text:Hide()
+        elapsed = RANGE_INTERVAL
+    end)
+    warning:SetScript("OnUpdate", function(self, dt)
+        elapsed = elapsed + dt
+        if elapsed < RANGE_INTERVAL then return end
+        elapsed = 0
+        local lower, upper
+        if unlocked then
+            lower, upper = 10, 28   -- sample, so it can be seen while moving
+        elseif PaladinPalDB.range then
+            lower, upper = EstimateRange()
+        end
+        if lower then
+            if upper then
+                text:SetText(("TOO FAR: %d-%d yd"):format(lower, upper))
+            else
+                text:SetText(("TOO FAR: %d+ yd"):format(lower))
+            end
+            text:Show()
+            self.icon:SetVertexColor(1, 0.35, 0.35)
+        else
+            text:Hide()
+            self.icon:SetVertexColor(1, 1, 1)
+        end
+    end)
+end
+
+CreateRangeText(remindersByKey.wisdom.warning)
+
 Update = function()
     for _, reminder in ipairs(reminders) do
         reminder.warning:SetShown(unlocked or (PaladinPalDB[reminder.key] and reminder.check()))
@@ -266,6 +364,7 @@ frame:SetScript("OnEvent", function(self, event, ...)
                 if PaladinPalDB[reminder.key] == nil then PaladinPalDB[reminder.key] = true end
                 reminder.warning:ApplyPosition()
             end
+            if PaladinPalDB.range == nil then PaladinPalDB.range = true end
             self:UnregisterEvent("ADDON_LOADED")
         end
     elseif PaladinPalDB then
@@ -298,7 +397,7 @@ end
 local function Usage()
     local keys = {}
     for _, reminder in ipairs(reminders) do keys[#keys + 1] = reminder.key end
-    Print("commands: on, off, <reminder> on|off, move [reminder] <x> <y>, unlock, lock, reset")
+    Print("commands: on, off, <reminder> on|off, range on|off, move [reminder] <x> <y>, unlock, lock, reset")
     Print("reminders: " .. table.concat(keys, ", "))
 end
 
@@ -308,6 +407,9 @@ SlashCmdList.PALADINPAL = function(msg)
     local cmd, arg = strsplit(" ", strtrim(msg or ""):lower(), 2)
     if remindersByKey[cmd] and (arg == "on" or arg == "off") then
         SetEnabled(remindersByKey[cmd], arg == "on")
+    elseif cmd == "range" and (arg == "on" or arg == "off") then
+        PaladinPalDB.range = arg == "on"
+        Print("Judgement range display" .. (PaladinPalDB.range and "enabled." or "disabled."))
     elseif cmd == "on" or cmd == "off" then
         for _, reminder in ipairs(reminders) do SetEnabled(reminder, cmd == "on") end
     elseif cmd == "unlock" then

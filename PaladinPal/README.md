@@ -51,6 +51,12 @@ The warning appears anywhere, not just in instances, when all of these are true:
 
 Judgement of Wisdom from any paladin counts, since only one can be on a target at a time. If you don't use it, turn it off with `/pp wisdom off`.
 
+### Range to target
+
+If your target is too far away to judge (Judgement reaches 10 yards), the icon turns red and the distance appears under the warning, for example **TOO FAR: 10-28 yd** or **TOO FAR: 30+ yd**. It disappears once you're within 10 yards.
+
+The game doesn't give addons an exact distance to enemies, so the distance is a range worked out from which of your spells can reach the target: Judgement (10 yards), Holy Shock (20), follow distance (28), and Hammer of Wrath, Avenger's Shield and Exorcism (30, Exorcism only on undead and demons). The more of these you know, the narrower the range. Turn it off with `/pp range off`.
+
 ## Commands
 
 `/pp` and `/paladinpal` work the same way.
@@ -59,9 +65,10 @@ Judgement of Wisdom from any paladin counts, since only one can be on a target a
 |---|---|
 | `/pp on` / `/pp off` | Turn all reminders on or off |
 | `/pp <reminder> on` / `/pp <reminder> off` | Turn one reminder on or off: `aura`, `favor`, `illumination` or `wisdom` |
+| `/pp range on` / `/pp range off` | Show or hide the distance under the Judgement of Wisdom warning |
 | `/pp move <x> <y>` | Move all warnings by that many pixels. Positive `y` is up, negative is down; positive `x` is right. For example, `/pp move 0 50` moves everything 50 pixels up |
 | `/pp move <reminder> <x> <y>` | Move one warning, for example `/pp move wisdom 0 -20` |
-| `/pp unlock` | Show all warnings so you can drag them somewhere else |
+| `/pp unlock` | Show all warnings, with a sample distance, so you can drag them somewhere else |
 | `/pp lock` | Lock the warnings in place |
 | `/pp reset` | Move all warnings back to their default spots above the center of the screen |
 
