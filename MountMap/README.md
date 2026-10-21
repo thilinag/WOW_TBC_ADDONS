@@ -26,12 +26,27 @@ Druid travel and flight forms and Shaman Ghost Wolf count as mounted. Turn that 
 
 Use `/mmap test` to preview the overlay without mounting.
 
+## Settings
+
+Type `/mmap` on its own, or go to **Options > AddOns > MountMap**, to change everything below with checkboxes, sliders and buttons. Changes apply straight away. Click **Preview** to see the overlay without mounting while you adjust it, and **Reset to defaults** to start over.
+
+## Minimap button
+
+MountMap puts a horse button on the edge of your minimap:
+
+- **Left-click** turns the overlay on or off. The icon turns grey while it's off.
+- **Right-click** opens the settings.
+- **Drag** it to move it around the minimap edge.
+
+Hide it with **Show minimap button** in the settings, or `/mmap minimap off`. While you're mounted it stays at the minimap's usual spot with your other addon icons, or hides with them if **Border, buttons and addon icons while mounted** is set to **Hide**.
+
 ## Commands
 
 `/mmap` and `/mountmap` work the same way. Settings are shared across your characters.
 
 | Command | What it does |
 |---|---|
+| `/mmap` | Open the settings |
 | `/mmap alpha 0.5` | Set the transparency, from 0.05 to 1 (1 is solid) |
 | `/mmap size 400` | Set the map size in pixels |
 | `/mmap offset 0 -50` | Move the map away from the screen centre (x, y) |
@@ -48,6 +63,7 @@ Use `/mmap test` to preview the overlay without mounting.
 | `/mmap rotate on` / `off` | Rotate the map while mounted so the direction you face is always up |
 | `/mmap test` | Turn the preview on or off |
 | `/mmap on` / `off` | Turn the addon on or off |
+| `/mmap minimap on` / `off` | Show or hide the minimap button |
 | `/mmap show` | List the current settings |
 | `/mmap debug` | Print the minimap's current state and which buttons are hidden, for troubleshooting |
 | `/mmap reset` | Restore the default settings |

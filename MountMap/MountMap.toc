@@ -6,3 +6,5 @@
 ## SavedVariables: MountMapDB
 
 MountMap.lua
+Options.lua
+MinimapButton.lua
