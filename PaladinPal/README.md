@@ -57,12 +57,17 @@ If your target is too far away to judge (Judgement reaches 10 yards), the icon t
 
 The game doesn't give addons an exact distance to enemies, so the distance is a range worked out from which of your spells can reach the target: Judgement (10 yards), Holy Shock (20), follow distance (28), and Hammer of Wrath, Avenger's Shield and Exorcism (30, Exorcism only on undead and demons). The more of these you know, the narrower the range. Turn it off with `/pp range off`.
 
+## Settings
+
+Type `/pp` on its own, or go to **Options > AddOns > PaladinPal**, to turn each reminder and the distance display on or off. **Unlock and move** closes the options window and shows every warning so you can drag them; type `/pp lock` (or click **Lock** in the settings) when you're done. **Reset positions** puts them back above the center of the screen.
+
 ## Commands
 
 `/pp` and `/paladinpal` work the same way.
 
 | Command | What it does |
 |---|---|
+| `/pp` | Open the settings |
 | `/pp on` / `/pp off` | Turn all reminders on or off |
 | `/pp <reminder> on` / `/pp <reminder> off` | Turn one reminder on or off: `aura`, `favor`, `illumination` or `wisdom` |
 | `/pp range on` / `/pp range off` | Show or hide the distance under the Judgement of Wisdom warning |
@@ -72,4 +77,4 @@ The game doesn't give addons an exact distance to enemies, so the distance is a 
 | `/pp lock` | Lock the warnings in place |
 | `/pp reset` | Move all warnings back to their default spots above the center of the screen |
 
-Type `/pp` with no arguments to list the commands and reminder names. Settings and positions are saved per character.
+Type `/pp help` to list the commands and reminder names. Settings and positions are saved per character.

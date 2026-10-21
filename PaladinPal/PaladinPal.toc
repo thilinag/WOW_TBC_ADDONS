@@ -6,3 +6,4 @@
 ## SavedVariablesPerCharacter: PaladinPalDB
 
 PaladinPal.lua
+Options.lua

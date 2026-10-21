@@ -1,4 +1,4 @@
-local ADDON_NAME = ...
+local ADDON_NAME, ns = ...
 
 -- Paladin auras live on the stance bar in TBC, so GetShapeshiftForm()
 -- tells us whether one is active without matching spell names.
@@ -353,7 +353,14 @@ local function SetUnlocked(value)
         reminder.warning.bg:SetShown(value)
     end
     Update()
+    if ns.RefreshOptions then ns.RefreshOptions() end
 end
+
+-- Shared with the options panel.
+ns.reminders = reminders
+ns.Update = Update
+ns.SetUnlocked = SetUnlocked
+function ns.IsUnlocked() return unlocked end
 
 local frame = CreateFrame("Frame")
 frame:SetScript("OnEvent", function(self, event, ...)
@@ -399,17 +406,21 @@ local function Usage()
     for _, reminder in ipairs(reminders) do keys[#keys + 1] = reminder.key end
     Print("commands: on, off, <reminder> on|off, range on|off, move [reminder] <x> <y>, unlock, lock, reset")
     Print("reminders: " .. table.concat(keys, ", "))
+    Print("type /pp on its own to open the settings.")
 end
 
 SLASH_PALADINPAL1 = "/paladinpal"
 SLASH_PALADINPAL2 = "/pp"
 SlashCmdList.PALADINPAL = function(msg)
     local cmd, arg = strsplit(" ", strtrim(msg or ""):lower(), 2)
-    if remindersByKey[cmd] and (arg == "on" or arg == "off") then
+    if cmd == "" then
+        ns.OpenOptions()
+        return
+    elseif remindersByKey[cmd] and (arg == "on" or arg == "off") then
         SetEnabled(remindersByKey[cmd], arg == "on")
     elseif cmd == "range" and (arg == "on" or arg == "off") then
         PaladinPalDB.range = arg == "on"
-        Print("Judgement range display" .. (PaladinPalDB.range and "enabled." or "disabled."))
+        Print("Judgement range display " .. (PaladinPalDB.range and "enabled." or "disabled."))
     elseif cmd == "on" or cmd == "off" then
         for _, reminder in ipairs(reminders) do SetEnabled(reminder, cmd == "on") end
     elseif cmd == "unlock" then
@@ -441,4 +452,5 @@ SlashCmdList.PALADINPAL = function(msg)
         return
     end
     Update()
+    if ns.RefreshOptions then ns.RefreshOptions() end
 end
