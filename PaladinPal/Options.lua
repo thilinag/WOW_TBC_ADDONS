@@ -8,9 +8,11 @@ if not ns.reminders then return end
 
 local DESCRIPTIONS = {
     aura = "When you don't have an aura active.",
-    favor = "In combat in a dungeon or raid while Divine Favor is off cooldown.",
+    crusader = "In a dungeon or raid while Crusader Aura is your aura and you're not mounted.",
+    favor ="In combat in a dungeon or raid while Divine Favor is off cooldown.",
     illumination = "In combat in a dungeon or raid while Divine Illumination is off cooldown.",
     wisdom = "In combat while your enemy target doesn't have Judgement of Wisdom on it.",
+    blessings = "A list of who's missing a PallyPower-assigned blessing, and which paladin should cast it.",
 }
 
 local panel = CreateFrame("Frame")
@@ -75,6 +77,10 @@ for _, reminder in ipairs(ns.reminders) do
         Checkbox("Show distance to target",
             "Under the warning, how far your target is while it's out of Judgement range.",
             "range", 26)
+    elseif reminder.key == "blessings" then
+        Checkbox("Also in combat",
+            "Keep the list up during fights. Off, it only shows between pulls.",
+            "blessingsCombat", 26)
     end
 end
 
