@@ -1,10 +1,11 @@
-local ADDON_NAME = ...
+local ADDON_NAME, ns = ...
 
 -- Paladin auras live on the stance bar in TBC, so GetShapeshiftForm()
 -- tells us whether one is active without matching spell names.
 local _, playerClass = UnitClass("player")
 if playerClass ~= "PALADIN" then return end
 
+local CRUSADER_AURA = 32223
 local DIVINE_FAVOR = 20216
 local DIVINE_ILLUMINATION = 31842
 -- Each rank is a separate spell ID. You need the seal to judge it.
@@ -44,12 +45,8 @@ local function GetIcon(spellID)
 end
 
 local function CreateWarning(reminder)
-    local posKey = reminder.key .. "Pos"
     local warning = CreateFrame("Frame", "PaladinPal_" .. reminder.key, UIParent)
     warning:SetSize(480, 50)
-    warning:SetMovable(true)
-    warning:SetClampedToScreen(true)
-    warning:RegisterForDrag("LeftButton")
     warning:Hide()
 
     local text = warning:CreateFontString(nil, "OVERLAY")
@@ -69,12 +66,6 @@ local function CreateWarning(reminder)
         text:SetPoint("CENTER")
     end
 
-    local bg = warning:CreateTexture(nil, "BACKGROUND")
-    bg:SetAllPoints()
-    bg:SetColorTexture(0, 0, 0, 0.5)
-    bg:Hide()
-    warning.bg = bg
-
     local pulse = warning:CreateAnimationGroup()
     pulse:SetLooping("BOUNCE")
     local fade = pulse:CreateAnimation("Alpha")
@@ -90,11 +81,33 @@ local function CreateWarning(reminder)
         pulse:Play()
     end)
     warning:SetScript("OnHide", function() pulse:Stop() end)
+    return warning
+end
+
+-- Lets a warning be dragged while unlocked and saves where it's put.
+local function AddMovement(warning, reminder)
+    local posKey = reminder.key .. "Pos"
+    warning:SetMovable(true)
+    warning:SetClampedToScreen(true)
+    warning:RegisterForDrag("LeftButton")
+
+    local bg = warning:CreateTexture(nil, "BACKGROUND")
+    bg:SetAllPoints()
+    bg:SetColorTexture(0, 0, 0, 0.5)
+    bg:Hide()
+    warning.bg = bg
+
     warning:SetScript("OnDragStart", function(self) self:StartMoving() end)
     warning:SetScript("OnDragStop", function(self)
         self:StopMovingOrSizing()
         local point, _, relPoint, x, y = self:GetPoint()
+        if reminder.defaultPos then
+            -- Frames that change height keep their top-left corner in place.
+            point, relPoint = "TOPLEFT", "TOPLEFT"
+            x, y = self:GetLeft(), self:GetTop() - UIParent:GetHeight()
+        end
         PaladinPalDB[posKey] = { point, relPoint, x, y }
+        self:ApplyPosition()
     end)
 
     function warning:ApplyPosition()
@@ -102,6 +115,9 @@ local function CreateWarning(reminder)
         self:ClearAllPoints()
         if pos then
             self:SetPoint(pos[1], UIParent, pos[2], pos[3], pos[4])
+        elseif reminder.defaultPos then
+            local p = reminder.defaultPos
+            self:SetPoint(p[1], UIParent, p[2], p[3], p[4])
         else
             self:SetPoint("CENTER", UIParent, "CENTER", 0, reminder.defaultY)
         end
@@ -117,8 +133,6 @@ local function CreateWarning(reminder)
         PaladinPalDB[posKey] = nil
         self:ApplyPosition()
     end
-
-    return warning
 end
 
 local function GetCooldown(spellID)
@@ -203,9 +217,22 @@ local function JudgementMissing()
     return not TargetHasDebuff(JUDGEMENT_OF_WISDOM_RANKS)
 end
 
+-- Crusader Aura is for riding; in a dungeon or raid it's usually left on by
+-- mistake after mounting up. Hidden while mounted, when it's doing its job.
+local function CrusaderAuraInInstance()
+    if not InDungeonOrRaid() then return false end
+    if UnitIsDeadOrGhost("player") or IsMounted() or UnitOnTaxi("player") then return false end
+    local form = GetShapeshiftForm()
+    if form == 0 then return false end
+    local _, _, _, spellID = GetShapeshiftFormInfo(form)
+    return spellID == CRUSADER_AURA
+end
+
 -- To add a reminder, add an entry here. `key` is used for the slash
 -- command (/pp <key> on|off) and saved settings; `check` returns true
 -- when the warning should show. Set `spell` to show that spell's icon.
+-- `create` builds a custom frame in place of the flashing text, and
+-- `refresh(frame, unlocked)` fills it in while it's showing.
 local reminders = {
     {
         key = "aura",
@@ -219,6 +246,15 @@ local reminders = {
             if UnitIsDeadOrGhost("player") or UnitOnTaxi("player") then return false end
             return GetShapeshiftForm() == 0
         end,
+    },
+    {
+        key = "crusader",
+        name = "Crusader Aura",
+        text = "CRUSADER AURA",
+        spell = CRUSADER_AURA,
+        color = { 1, 0.5, 0 },
+        defaultY = 255,
+        check = CrusaderAuraInInstance,
     },
     {
         key = "favor",
@@ -247,11 +283,13 @@ local reminders = {
         defaultY = 35,
         check = JudgementMissing,
     },
+    ns.blessingsReminder,  -- Blessings.lua
 }
 
 local remindersByKey = {}
 for _, reminder in ipairs(reminders) do
-    reminder.warning = CreateWarning(reminder)
+    reminder.warning = (reminder.create or CreateWarning)(reminder)
+    AddMovement(reminder.warning, reminder)
     remindersByKey[reminder.key] = reminder
 end
 
@@ -343,6 +381,9 @@ CreateRangeText(remindersByKey.wisdom.warning)
 Update = function()
     for _, reminder in ipairs(reminders) do
         reminder.warning:SetShown(unlocked or (PaladinPalDB[reminder.key] and reminder.check()))
+        if reminder.refresh and reminder.warning:IsShown() then
+            reminder.refresh(reminder.warning, unlocked)
+        end
     end
 end
 
@@ -353,7 +394,14 @@ local function SetUnlocked(value)
         reminder.warning.bg:SetShown(value)
     end
     Update()
+    if ns.RefreshOptions then ns.RefreshOptions() end
 end
+
+-- Shared with the options panel.
+ns.reminders = reminders
+ns.Update = Update
+ns.SetUnlocked = SetUnlocked
+function ns.IsUnlocked() return unlocked end
 
 local frame = CreateFrame("Frame")
 frame:SetScript("OnEvent", function(self, event, ...)
@@ -365,7 +413,11 @@ frame:SetScript("OnEvent", function(self, event, ...)
                 reminder.warning:ApplyPosition()
             end
             if PaladinPalDB.range == nil then PaladinPalDB.range = true end
+            if PaladinPalDB.blessingsCombat == nil then PaladinPalDB.blessingsCombat = false end
             self:UnregisterEvent("ADDON_LOADED")
+            -- Other players' buffs change without events we listen to, so
+            -- check everyone's blessings every second.
+            C_Timer.NewTicker(1, Update)
         end
     elseif PaladinPalDB then
         Update()
@@ -397,19 +449,26 @@ end
 local function Usage()
     local keys = {}
     for _, reminder in ipairs(reminders) do keys[#keys + 1] = reminder.key end
-    Print("commands: on, off, <reminder> on|off, range on|off, move [reminder] <x> <y>, unlock, lock, reset")
+    Print("commands: on, off, <reminder> on|off, range on|off, blessingcombat on|off, move [reminder] <x> <y>, unlock, lock, reset")
     Print("reminders: " .. table.concat(keys, ", "))
+    Print("type /pp on its own to open the settings.")
 end
 
 SLASH_PALADINPAL1 = "/paladinpal"
 SLASH_PALADINPAL2 = "/pp"
 SlashCmdList.PALADINPAL = function(msg)
     local cmd, arg = strsplit(" ", strtrim(msg or ""):lower(), 2)
-    if remindersByKey[cmd] and (arg == "on" or arg == "off") then
+    if cmd == "" then
+        ns.OpenOptions()
+        return
+    elseif remindersByKey[cmd] and (arg == "on" or arg == "off") then
         SetEnabled(remindersByKey[cmd], arg == "on")
     elseif cmd == "range" and (arg == "on" or arg == "off") then
         PaladinPalDB.range = arg == "on"
-        Print("Judgement range display" .. (PaladinPalDB.range and "enabled." or "disabled."))
+        Print("Judgement range display " .. (PaladinPalDB.range and "enabled." or "disabled."))
+    elseif cmd == "blessingcombat" and (arg == "on" or arg == "off") then
+        PaladinPalDB.blessingsCombat = arg == "on"
+        Print("Missing blessings in combat " .. (PaladinPalDB.blessingsCombat and "enabled." or "disabled."))
     elseif cmd == "on" or cmd == "off" then
         for _, reminder in ipairs(reminders) do SetEnabled(reminder, cmd == "on") end
     elseif cmd == "unlock" then
@@ -441,4 +500,5 @@ SlashCmdList.PALADINPAL = function(msg)
         return
     end
     Update()
+    if ns.RefreshOptions then ns.RefreshOptions() end
 end

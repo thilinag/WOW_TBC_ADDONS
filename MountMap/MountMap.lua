@@ -1,4 +1,4 @@
-local ADDON_NAME = ...
+local ADDON_NAME, ns = ...
 
 local DEFAULTS = {
     enabled = true,
@@ -17,6 +17,8 @@ local DEFAULTS = {
     ringAlpha = 0.35,
     buttons = "keep", -- minimap border and buttons while mounted: keep or hide
     fillAlpha = 0.5,  -- darkness of the empty space left at the minimap's spot
+    minimapButton = true, -- show the on/off button on the minimap
+    minimapAngle = 225,   -- its position around the minimap edge, in degrees
 }
 
 local RING_TEXTURE = "Interface\\AddOns\\MountMap\\Textures\\Ring"
@@ -38,6 +40,8 @@ local SQUARE_MASK = "Interface\\Buttons\\WHITE8X8"
 local MOUNT_FORMS = { [3] = true, [16] = true, [27] = true, [29] = true }
 
 local POLL_INTERVAL = 0.2
+
+ns.DEFAULTS = DEFAULTS
 
 local active = false
 local preview = false
@@ -72,6 +76,7 @@ local frame = CreateFrame("Frame")
 local function Print(msg)
     DEFAULT_CHAT_FRAME:AddMessage("|cff33ff99MountMap|r: " .. msg)
 end
+ns.Print = Print
 
 local function IsMountedish()
     -- Flight paths count as mounted; skip them unless asked.
@@ -433,6 +438,32 @@ local function Update()
     if want then Activate() else Deactivate() end
 end
 
+-- Applies changed settings; the slash command and the options panel share it.
+-- Buttons are only moved or hidden on activate, so `rebuild` redoes that.
+function ns.Refresh(rebuild)
+    if rebuild and active then Deactivate() end
+    if active then
+        ApplyLayout()
+        if holder and holder:IsShown() then ShowHolder() end
+    end
+    Update()
+    if ns.RefreshOptions then ns.RefreshOptions() end
+    if ns.UpdateMinimapButton then ns.UpdateMinimapButton() end
+end
+
+function ns.IsPreview()
+    return preview
+end
+
+function ns.IsActive()
+    return active
+end
+
+function ns.SetPreview(value)
+    preview = value
+    Update()
+end
+
 frame:SetScript("OnEvent", function(self, event, ...)
     if event == "ADDON_LOADED" then
         if ... == ADDON_NAME then
@@ -459,11 +490,12 @@ frame:RegisterEvent("MODIFIER_STATE_CHANGED")
 
 local function ShowSettings()
     local db = MountMapDB
-    Print(("%s | alpha %.2f | size %d | offset %d,%d | zoom %s | edge %s | forms %s | rotate %s | icons %.1fx | taxi %s | hover %s | ring %s | buttons %s | fill %.2f"):format(
+    Print(("%s | alpha %.2f | size %d | offset %d,%d | zoom %s | edge %s | forms %s | rotate %s | icons %.1fx | taxi %s | hover %s | ring %s | buttons %s | fill %.2f | minimap button %s"):format(
         db.enabled and "on" or "off", db.alpha, db.size, db.x, db.y,
         db.zoom >= 0 and tostring(db.zoom) or "keep", db.edge, db.forms and "on" or "off",
         db.rotate and "on" or "off", db.iconScale, db.taxi and "on" or "off", db.hover,
-        db.ring and ("%.2f"):format(db.ringAlpha) or "off", db.buttons, db.fillAlpha))
+        db.ring and ("%.2f"):format(db.ringAlpha) or "off", db.buttons, db.fillAlpha,
+        db.minimapButton and "on" or "off"))
 end
 
 local function FrameName(f)
@@ -491,7 +523,8 @@ end
 
 local function Usage()
     Print("commands: on, off, alpha <0-1>, size <px>, offset <x> <y>, zoom <0-5|keep>, "
-        .. "edge <soft|medium|hard>, forms <on|off>, rotate <on|off>, icons <0.5-4>, taxi <on|off>, hover <alt|shift|ctrl|always|off>, ring <on|off|0-1>, buttons <keep|hide>, fill <0-1>, test, show, debug, reset")
+        .. "edge <soft|medium|hard>, forms <on|off>, rotate <on|off>, icons <0.5-4>, taxi <on|off>, hover <alt|shift|ctrl|always|off>, ring <on|off|0-1>, buttons <keep|hide>, fill <0-1>, minimap <on|off>, test, show, debug, reset")
+    Print("type /mmap on its own to open the settings.")
 end
 
 SLASH_MOUNTMAP1 = "/mountmap"
@@ -499,8 +532,12 @@ SLASH_MOUNTMAP2 = "/mmap"
 SlashCmdList.MOUNTMAP = function(msg)
     local cmd, a, b = strsplit(" ", strtrim(msg or ""):lower())
     local db = MountMapDB
+    local rebuild = false
 
-    if cmd == "on" or cmd == "off" then
+    if cmd == "" then
+        ns.OpenOptions()
+        return
+    elseif cmd == "on" or cmd == "off" then
         db.enabled = cmd == "on"
         Print("overlay " .. (db.enabled and "enabled." or "disabled."))
     elseif cmd == "alpha" and tonumber(a) then
@@ -538,12 +575,13 @@ SlashCmdList.MOUNTMAP = function(msg)
     elseif cmd == "buttons" and (a == "keep" or a == "hide") then
         db.buttons = a
         Print("minimap buttons: " .. a .. ".")
-        -- Buttons are only moved or hidden on activate, so redo it.
-        if active then Deactivate() end
+        rebuild = true
     elseif cmd == "fill" and tonumber(a) then
         db.fillAlpha = math.max(0, math.min(1, tonumber(a)))
         Print(("fill set to %.2f."):format(db.fillAlpha))
-        if active and holder and holder:IsShown() then ShowHolder() end
+    elseif cmd == "minimap" and (a == "on" or a == "off") then
+        db.minimapButton = a == "on"
+        Print("minimap button " .. a .. ".")
     elseif cmd == "taxi" and (a == "on" or a == "off") then
         db.taxi = a == "on"
         Print("flight paths " .. a .. ".")
@@ -567,6 +605,5 @@ SlashCmdList.MOUNTMAP = function(msg)
         return
     end
 
-    if active then ApplyLayout() end
-    Update()
+    ns.Refresh(rebuild)
 end
